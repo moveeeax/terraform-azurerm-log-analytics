@@ -4,12 +4,11 @@ terraform {
   required_providers {
     azurerm = {
       source = "hashicorp/azurerm"
-      # Floor verified empirically: every argument this module sets on
-      # azurerm_log_analytics_workspace (including
-      # reservation_capacity_in_gb_per_day) is already present in the resource
-      # schema at 3.0.0, so ">= 3.0" is correct rather than optimistic.
-      # The upper bound guards against an untested 5.x major; 4.x is validated.
-      version = ">= 3.0, < 5.0"
+      # Floor: internet_ingestion_access_type / internet_query_access_type,
+      # which replace the internet_*_enabled arguments removed in 5.0, only
+      # exist from azurerm 5.0.0, so one configuration cannot cover 4.x and 5.x.
+      # Ceiling: tested against 5.x; 6.0 has not been vetted.
+      version = ">= 5.0, < 6.0"
     }
   }
 }

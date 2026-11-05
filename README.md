@@ -9,7 +9,7 @@ the workspace ID and shared key for wiring up diagnostic settings and agents.
 
 ```hcl
 module "log_analytics" {
-  source = "github.com/moveeeax/terraform-azurerm-log-analytics"
+  source = "github.com/moveeeax/terraform-azurerm-log-analytics?ref=v1.0.0"
 
   name                = "prod-law"
   resource_group_name = "prod-rg"
@@ -30,12 +30,15 @@ A runnable example lives in [`examples/basic`](examples/basic).
 | Name      | Version         |
 |-----------|-----------------|
 | terraform | >= 1.5          |
-| azurerm   | >= 3.0, < 5.0   |
+| azurerm   | >= 5.0, < 6.0   |
 
-The `>= 3.0` floor is the real one: every argument this module sets on
-`azurerm_log_analytics_workspace` — including `reservation_capacity_in_gb_per_day`
-— is already present in the resource schema at azurerm 3.0.0. The `< 5.0` ceiling
-keeps an untested major from being pulled in silently; 4.x is validated.
+azurerm 5.0 removed `internet_ingestion_enabled` and `internet_query_enabled`
+from `azurerm_log_analytics_workspace` in favour of
+`internet_ingestion_access_type` and `internet_query_access_type`, which only
+exist from 5.0.0. One configuration cannot cover both majors, so this version of
+the module needs azurerm 5.x; stay on v1 of the module for azurerm 3.x/4.x. CI
+validates and tests against 5.0.0 and the latest 5.x release; 6.x is excluded
+until it has been tested.
 
 Running the test suite additionally needs Terraform >= 1.7 for `mock_provider`.
 That is a test-only requirement and deliberately not reflected in
@@ -68,8 +71,8 @@ module defaults land where they do.
   `PerNode`/`Standalone`/`Unlimited` tiers that remain selectable on
   subscriptions already entitled to them.
 
-- **`internet_ingestion_enabled` and `internet_query_enabled` default to
-  `true`**, matching Azure's default. Setting either to `false` requires an
+- **`internet_ingestion_access_type` and `internet_query_access_type` default to
+  `Enabled`**, matching Azure's default. Setting either to `Disabled` requires an
   Azure Monitor Private Link Scope covering every agent, diagnostic setting and
   query client (including the Azure portal); flipping them without that
   infrastructure stops ingestion or breaks queries and alert rules. They are
@@ -100,8 +103,10 @@ needs no Azure credentials and no network.
 | `sku`                                | SKU of the workspace. Retired tiers (Free/Standard/Premium) are rejected. | `string`      | `"PerGB2018"`  |    no    |
 | `retention_in_days`                  | Days ingested data is retained. Must be between 30 and 730.          | `number`      | `30`           |    no    |
 | `daily_quota_gb`                     | Daily ingestion cap in GB. `-1` means unlimited; `0` is rejected.    | `number`      | `-1`           |    no    |
-| `internet_ingestion_enabled`         | Whether ingestion over the public internet is permitted.             | `bool`        | `true`         |    no    |
-| `internet_query_enabled`             | Whether querying over the public internet is permitted.              | `bool`        | `true`         |    no    |
+| `internet_ingestion_access_type`     | Public ingestion access: `Enabled`, `Disabled` or `SecuredByPerimeter`. `null` means `Enabled`. | `string` | `null` | no |
+| `internet_query_access_type`         | Public query access: `Enabled`, `Disabled` or `SecuredByPerimeter`. `null` means `Enabled`. | `string` | `null` | no |
+| `internet_ingestion_enabled`         | Deprecated, use `internet_ingestion_access_type` (`true` = `Enabled`, `false` = `Disabled`). | `bool` | `null` | no |
+| `internet_query_enabled`             | Deprecated, use `internet_query_access_type` (`true` = `Enabled`, `false` = `Disabled`). | `bool` | `null` | no |
 | `reservation_capacity_in_gb_per_day` | Reserved daily capacity in GB (CapacityReservation SKU only).        | `number`      | `100`          |    no    |
 | `tags`                               | Map of tags applied to the workspace.                                | `map(string)` | `{}`           |    no    |
 
