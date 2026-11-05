@@ -31,14 +31,63 @@ run "defaults_are_safe" {
   }
 
   assert {
-    condition     = azurerm_log_analytics_workspace.this.internet_ingestion_enabled == true
-    error_message = "Default internet_ingestion_enabled must be true; disabling it without a Private Link Scope stops ingestion."
+    condition     = azurerm_log_analytics_workspace.this.internet_ingestion_access_type == "Enabled"
+    error_message = "Default internet_ingestion_access_type must be Enabled; disabling it without a Private Link Scope stops ingestion."
   }
 
   assert {
-    condition     = azurerm_log_analytics_workspace.this.internet_query_enabled == true
-    error_message = "Default internet_query_enabled must be true; disabling it without a Private Link Scope breaks queries and alerts."
+    condition     = azurerm_log_analytics_workspace.this.internet_query_access_type == "Enabled"
+    error_message = "Default internet_query_access_type must be Enabled; disabling it without a Private Link Scope breaks queries and alerts."
   }
+}
+
+run "deprecated_booleans_map_to_access_types" {
+  variables {
+    internet_ingestion_enabled = false
+    internet_query_enabled     = true
+  }
+
+  assert {
+    condition     = azurerm_log_analytics_workspace.this.internet_ingestion_access_type == "Disabled"
+    error_message = "internet_ingestion_enabled = false must map to Disabled."
+  }
+
+  assert {
+    condition     = azurerm_log_analytics_workspace.this.internet_query_access_type == "Enabled"
+    error_message = "internet_query_enabled = true must map to Enabled."
+  }
+}
+
+run "access_type_is_passed_through" {
+  variables {
+    internet_query_access_type = "SecuredByPerimeter"
+  }
+
+  assert {
+    condition     = azurerm_log_analytics_workspace.this.internet_query_access_type == "SecuredByPerimeter"
+    error_message = "internet_query_access_type should be passed through."
+  }
+}
+
+run "rejects_both_old_and_new_inputs" {
+  command = plan
+
+  variables {
+    internet_ingestion_enabled     = false
+    internet_ingestion_access_type = "Disabled"
+  }
+
+  expect_failures = [azurerm_log_analytics_workspace.this]
+}
+
+run "rejects_unknown_access_type" {
+  command = plan
+
+  variables {
+    internet_query_access_type = "Private"
+  }
+
+  expect_failures = [var.internet_query_access_type]
 }
 
 run "reservation_capacity_omitted_unless_capacity_reservation_sku" {

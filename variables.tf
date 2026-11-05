@@ -75,26 +75,50 @@ variable "daily_quota_gb" {
   }
 }
 
-variable "internet_ingestion_enabled" {
+variable "internet_ingestion_access_type" {
   description = <<-EOT
-    Whether log ingestion over the public internet is permitted. Defaults to
-    true, matching Azure's default. Setting it to false requires an Azure
-    Monitor Private Link Scope covering every agent and diagnostic setting
-    that writes here, otherwise ingestion stops.
+    Public network access for log ingestion: Enabled, Disabled or
+    SecuredByPerimeter. Null (the default) means Enabled, matching Azure's
+    default. Disabled requires an Azure Monitor Private Link Scope covering
+    every agent and diagnostic setting that writes here, otherwise ingestion
+    stops.
   EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.internet_ingestion_access_type == null || contains(["Enabled", "Disabled", "SecuredByPerimeter"], coalesce(var.internet_ingestion_access_type, "Enabled"))
+    error_message = "internet_ingestion_access_type must be one of Enabled, Disabled or SecuredByPerimeter."
+  }
+}
+
+variable "internet_query_access_type" {
+  description = <<-EOT
+    Public network access for queries: Enabled, Disabled or
+    SecuredByPerimeter. Null (the default) means Enabled, matching Azure's
+    default. Disabled requires an Azure Monitor Private Link Scope for every
+    query client, including the Azure portal, otherwise queries and alert
+    rules stop working.
+  EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.internet_query_access_type == null || contains(["Enabled", "Disabled", "SecuredByPerimeter"], coalesce(var.internet_query_access_type, "Enabled"))
+    error_message = "internet_query_access_type must be one of Enabled, Disabled or SecuredByPerimeter."
+  }
+}
+
+variable "internet_ingestion_enabled" {
+  description = "Deprecated: use internet_ingestion_access_type. true maps to Enabled, false to Disabled."
   type        = bool
-  default     = true
+  default     = null
 }
 
 variable "internet_query_enabled" {
-  description = <<-EOT
-    Whether querying the workspace over the public internet is permitted.
-    Defaults to true, matching Azure's default. Setting it to false requires
-    an Azure Monitor Private Link Scope for every query client, including the
-    Azure portal, otherwise queries and alert rules stop working.
-  EOT
+  description = "Deprecated: use internet_query_access_type. true maps to Enabled, false to Disabled."
   type        = bool
-  default     = true
+  default     = null
 }
 
 variable "reservation_capacity_in_gb_per_day" {
