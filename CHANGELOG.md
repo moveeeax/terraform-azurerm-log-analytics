@@ -6,6 +6,8 @@ All notable changes to this module are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-08
+
 ### Added
 
 - `tables` input setting the plan (`Analytics` or `Basic`), interactive
@@ -35,6 +37,7 @@ All notable changes to this module are documented here. The format follows
 Initial release with plan-time rejection of retired SKUs, a zero daily quota
 and retention outside 30-730 days (`v0.1.0` points at the same commit).
 
-[Unreleased]: https://github.com/moveeeax/terraform-azurerm-log-analytics/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/moveeeax/terraform-azurerm-log-analytics/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/moveeeax/terraform-azurerm-log-analytics/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/moveeeax/terraform-azurerm-log-analytics/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/moveeeax/terraform-azurerm-log-analytics/releases/tag/v1.0.0
