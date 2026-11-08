@@ -18,3 +18,8 @@ output "primary_shared_key" {
   value       = azurerm_log_analytics_workspace.this.primary_shared_key
   sensitive   = true
 }
+
+output "table_ids" {
+  description = "Map of table name to the ID of each table managed through var.tables."
+  value       = { for k, t in azurerm_log_analytics_workspace_table.this : k => t.id }
+}

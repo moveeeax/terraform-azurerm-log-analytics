@@ -38,3 +38,15 @@ resource "azurerm_log_analytics_workspace" "this" {
     }
   }
 }
+
+# Per-table plan and retention. Only tables listed in var.tables are managed;
+# every other table keeps the workspace-level retention_in_days.
+resource "azurerm_log_analytics_workspace_table" "this" {
+  for_each = var.tables
+
+  name                    = each.key
+  workspace_id            = azurerm_log_analytics_workspace.this.id
+  plan                    = each.value.plan
+  retention_in_days       = each.value.retention_in_days
+  total_retention_in_days = each.value.total_retention_in_days
+}

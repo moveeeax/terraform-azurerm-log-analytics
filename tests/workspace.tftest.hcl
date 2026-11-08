@@ -4,7 +4,15 @@
 #
 # Run with: terraform init -backend=false && terraform test
 
-mock_provider "azurerm" {}
+mock_provider "azurerm" {
+  # azurerm_log_analytics_workspace_table parses workspace_id at plan time, so
+  # the mocked workspace needs a well-formed ID instead of a random string.
+  mock_resource "azurerm_log_analytics_workspace" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-rg/providers/Microsoft.OperationalInsights/workspaces/test-law"
+    }
+  }
+}
 
 variables {
   name                = "test-law"
@@ -219,4 +227,128 @@ run "accepts_compliance_retention" {
     condition     = azurerm_log_analytics_workspace.this.retention_in_days == 730
     error_message = "The maximum supported retention of 730 days must be accepted."
   }
+}
+
+# --- per-table plan and retention ---------------------------------------------
+
+run "no_tables_managed_by_default" {
+  command = plan
+
+  assert {
+    condition     = length(azurerm_log_analytics_workspace_table.this) == 0
+    error_message = "With the default tables = {}, no workspace tables may be managed, so upgrading the module leaves existing plans unchanged."
+  }
+}
+
+run "tables_are_configured_per_entry" {
+  command = plan
+
+  variables {
+    tables = {
+      ContainerLog = {
+        plan                    = "Basic"
+        total_retention_in_days = 365
+      }
+      AzureDiagnostics = {
+        retention_in_days       = 7
+        total_retention_in_days = 1095
+      }
+    }
+  }
+
+  assert {
+    condition     = azurerm_log_analytics_workspace_table.this["ContainerLog"].name == "ContainerLog"
+    error_message = "The map key must be used as the table name."
+  }
+
+  assert {
+    condition     = azurerm_log_analytics_workspace_table.this["ContainerLog"].plan == "Basic"
+    error_message = "plan must be passed through."
+  }
+
+  assert {
+    condition     = azurerm_log_analytics_workspace_table.this["ContainerLog"].retention_in_days == null
+    error_message = "retention_in_days must stay null when not set."
+  }
+
+  assert {
+    condition     = azurerm_log_analytics_workspace_table.this["ContainerLog"].total_retention_in_days == 365
+    error_message = "total_retention_in_days must be passed through."
+  }
+
+  assert {
+    condition     = azurerm_log_analytics_workspace_table.this["AzureDiagnostics"].plan == "Analytics"
+    error_message = "plan must default to Analytics."
+  }
+
+  assert {
+    condition     = azurerm_log_analytics_workspace_table.this["AzureDiagnostics"].retention_in_days == 7
+    error_message = "retention_in_days must be passed through."
+  }
+
+  assert {
+    condition     = azurerm_log_analytics_workspace_table.this["AzureDiagnostics"].total_retention_in_days == 1095
+    error_message = "A whole-year total_retention_in_days must be accepted."
+  }
+}
+
+run "rejects_unknown_table_plan" {
+  command = plan
+
+  variables {
+    tables = {
+      ContainerLog = { plan = "Auxiliary" }
+    }
+  }
+  expect_failures = [var.tables]
+}
+
+run "rejects_table_retention_out_of_range" {
+  command = plan
+
+  variables {
+    tables = {
+      ContainerLog = { retention_in_days = 3 }
+    }
+  }
+  expect_failures = [var.tables]
+}
+
+run "rejects_table_total_retention_not_supported" {
+  command = plan
+
+  variables {
+    tables = {
+      ContainerLog = { total_retention_in_days = 800 }
+    }
+  }
+  expect_failures = [var.tables]
+}
+
+run "rejects_retention_on_basic_table" {
+  command = plan
+
+  variables {
+    tables = {
+      ContainerLog = {
+        plan              = "Basic"
+        retention_in_days = 30
+      }
+    }
+  }
+  expect_failures = [var.tables]
+}
+
+run "rejects_total_retention_below_retention" {
+  command = plan
+
+  variables {
+    tables = {
+      ContainerLog = {
+        retention_in_days       = 90
+        total_retention_in_days = 30
+      }
+    }
+  }
+  expect_failures = [var.tables]
 }
