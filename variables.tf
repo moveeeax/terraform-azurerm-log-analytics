@@ -132,3 +132,68 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "tables" {
+  description = <<-EOT
+    Per-table overrides, keyed by table name (for example ContainerLog or
+    AzureDiagnostics). plan is Analytics (the default) or Basic, the cheaper
+    ingestion tier with limited query features. retention_in_days is the
+    interactive retention (4 to 730 days) and cannot be set on Basic tables,
+    whose interactive retention Azure fixes at 30 days. total_retention_in_days
+    adds long-term (archive) retention: 4 to 730 days, or a whole number of
+    years up to 12 (1095, 1460, ..., 4383). Null fields fall back to Azure's
+    defaults. Empty (the default) manages no tables.
+  EOT
+  type = map(object({
+    plan                    = optional(string, "Analytics")
+    retention_in_days       = optional(number)
+    total_retention_in_days = optional(number)
+  }))
+  default = {}
+
+  validation {
+    condition     = alltrue([for t in values(var.tables) : contains(["Analytics", "Basic"], t.plan)])
+    error_message = "tables[*].plan must be Analytics or Basic."
+  }
+
+  validation {
+    condition = alltrue([
+      for t in values(var.tables) :
+      t.retention_in_days == null || (
+        try(t.retention_in_days >= 4 && t.retention_in_days <= 730 && floor(t.retention_in_days) == t.retention_in_days, false)
+      )
+    ])
+    error_message = "tables[*].retention_in_days must be a whole number between 4 and 730."
+  }
+
+  validation {
+    # Mirrors the provider's own check: 4-730 days, or one of its fixed
+    # year values from 3 to 12 years.
+    condition = alltrue([
+      for t in values(var.tables) :
+      t.total_retention_in_days == null || (
+        try(
+          (t.total_retention_in_days >= 4 && t.total_retention_in_days <= 730 && floor(t.total_retention_in_days) == t.total_retention_in_days) ||
+          contains([1095, 1460, 1826, 2191, 2556, 2922, 3288, 3653, 4018, 4383], t.total_retention_in_days),
+          false,
+        )
+      )
+    ])
+    error_message = "tables[*].total_retention_in_days must be a whole number between 4 and 730, or one of 1095, 1460, 1826, 2191, 2556, 2922, 3288, 3653, 4018, 4383 (3 to 12 years)."
+  }
+
+  validation {
+    # The provider enforces this inside the resource rather than in its schema,
+    # so `validate` accepts it; reject it at the module boundary instead.
+    condition     = alltrue([for t in values(var.tables) : !(t.plan == "Basic" && t.retention_in_days != null)])
+    error_message = "tables[*].retention_in_days cannot be set when plan is Basic; Azure fixes the interactive retention of Basic tables at 30 days. Use total_retention_in_days for longer retention."
+  }
+
+  validation {
+    condition = alltrue([
+      for t in values(var.tables) :
+      t.retention_in_days == null || t.total_retention_in_days == null || try(t.total_retention_in_days >= t.retention_in_days, false)
+    ])
+    error_message = "tables[*].total_retention_in_days must be greater than or equal to retention_in_days."
+  }
+}

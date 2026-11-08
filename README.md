@@ -83,6 +83,39 @@ module defaults land where they do.
   `CapacityReservation`** and is `null` otherwise, so the default of `100` never
   leaks onto a pay-as-you-go workspace.
 
+## Per-table plan and retention
+
+The workspace-level `retention_in_days` applies to every table. High-volume
+tables such as `ContainerLog` or `AzureDiagnostics` usually dominate the bill,
+so `tables` lets you override them one by one, keyed by table name:
+
+```hcl
+  tables = {
+    ContainerLog = {
+      plan                    = "Basic"
+      total_retention_in_days = 365
+    }
+    AzureDiagnostics = {
+      retention_in_days       = 30
+      total_retention_in_days = 1095
+    }
+  }
+```
+
+- `plan` is `Analytics` (the default for an entry) or `Basic`. Basic tables
+  ingest at a lower price but support fewer query features and bill queries
+  by data scanned; check that nothing alerts on a table before moving it.
+- `retention_in_days` is interactive retention, 4-730 days. It cannot be set on
+  a Basic table, whose interactive retention Azure fixes at 30 days.
+- `total_retention_in_days` adds long-term (archive) retention on top: 4-730
+  days, or 1095, 1460, ..., 4383 for 3 to 12 years. It must be at least
+  `retention_in_days`.
+- Fields left `null` keep Azure's values. Tables not listed are not managed.
+
+The default is `{}`, so the module manages no tables unless you ask. The module
+rejects the combinations above at plan time; the provider's schema validation
+alone lets a Basic table with `retention_in_days` through `validate`.
+
 ## Testing
 
 ```sh
@@ -109,6 +142,7 @@ needs no Azure credentials and no network.
 | `internet_query_enabled`             | Deprecated, use `internet_query_access_type` (`true` = `Enabled`, `false` = `Disabled`). | `bool` | `null` | no |
 | `reservation_capacity_in_gb_per_day` | Reserved daily capacity in GB (CapacityReservation SKU only).        | `number`      | `100`          |    no    |
 | `tags`                               | Map of tags applied to the workspace.                                | `map(string)` | `{}`           |    no    |
+| `tables`                             | Per-table `plan`, `retention_in_days` and `total_retention_in_days`, keyed by table name. See [Per-table plan and retention](#per-table-plan-and-retention). | `map(object)` | `{}` | no |
 
 ## Outputs
 
@@ -118,6 +152,7 @@ needs no Azure credentials and no network.
 | `name`               | Name of the Log Analytics workspace.                   |
 | `workspace_id`       | Customer ID (workspace ID) of the workspace.           |
 | `primary_shared_key` | Primary shared key used by agents (sensitive).         |
+| `table_ids`          | Map of table name to ID for tables managed via `tables`. |
 
 ## License
 
